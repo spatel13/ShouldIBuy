@@ -15,11 +15,13 @@ def get_recent_5_datapoints(stock):
 
         # print(outerData)
         data = pd.DataFrame(outerData[1:], columns=outerData[0])
-        return list(data.head().close)
+        return data.head()
 
     return None
 
 def check_3_days_rule(data):
+    data = list(data.close)
+
     difference_in_days = []
     for i in range(len(data) - 1):
         difference_in_days.append(float(data[i]) - float(data[i+1]))
@@ -34,7 +36,7 @@ def check_3_days_rule(data):
 if __name__ == '__main__':
     ticker = str(input("Enter a ticker to check: ")).upper()
     data = get_recent_5_datapoints(ticker)
-    if not data:
+    if data.empty:
         print(f"{ticker} could not be found.")
     else:
         print(f'TIME TO BUY {ticker}?: {check_3_days_rule(data)}')
