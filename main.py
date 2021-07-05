@@ -15,6 +15,8 @@ def get_recent_5_datapoints(stock):
 
         # print(outerData)
         data = pd.DataFrame(outerData[1:], columns=outerData[0])
+        data = data.set_index(data.timestamp)
+        data = data.drop("timestamp", axis=1)
         return data.head()
 
     return None
