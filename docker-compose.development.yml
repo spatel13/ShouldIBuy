@@ -1,0 +1,33 @@
+version: "3.9"
+services:
+  mongo:
+    image: "mongo:4.2"
+    volumes:
+      - /Users/spatel13/Development/project_data/ShouldIBuy/mongo:/data/db
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/test --quiet
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+  api:
+    image: "should_i_buy_api:development"
+    volumes:
+      - /Users/spatel13/Development/ShouldIBuy/should_i_buy_api:/app
+      - /Users/spatel13/Development/project_data/ShouldIBuy/logs:/app/logs
+    environment:
+      - ALPHAVANTAGE_API_KEY=${ALPHAVANTAGE_API_KEY}
+      - DBPASS=${DBPASS}
+      - FLASK_ENV=development
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongo
+    # healthcheck:
+    #   test:  wget --quiet --tries=3 --spider http://admin:admin123@10.10.10.60:8081 || exit 1
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    restart: unless-stopped
