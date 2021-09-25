@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     """Base config."""
     app_name: str = "ShouldIBuy API"
     debug: bool = False
-    mongo_url: str = f"mongodb://mongo:27017/stock_data?retryWrites=true&w=majority"
+    mongo_url: str = f"mongodb://root:{environ.get('DBPASS')}@mongo:27017/admin"
     api_key: str = environ['ALPHAVANTAGE_API_KEY']
 
 

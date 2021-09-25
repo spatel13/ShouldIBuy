@@ -23,7 +23,7 @@ services:
     volumes:
       - /Users/spatel13/Development/project_data/ShouldIBuy/logs:/app/logs
     ports:
-      - "8000:80"
+      - "80:80"
     depends_on:
       - mongo
     # healthcheck:

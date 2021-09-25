@@ -18,9 +18,8 @@ RUN apk add --no-cache libstdc++  && \
 
 WORKDIR /app
 
-ENV FLASK_APP=app.py
-ENV FLASK_ENV="production"
 ENV ALPHAVANTAGE_API_KEY=${ALPHAVANTAGE_API_KEY}
+ENV DBPASS=${DBPASS}
 
 RUN apk add --no-cache gcc musl-dev linux-headers
 
