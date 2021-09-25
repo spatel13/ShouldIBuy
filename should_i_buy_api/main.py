@@ -1,6 +1,6 @@
 """Application entry point."""
+import aiohttp
 import json
-import requests
 import motor.motor_asyncio
 import pandas as pd
 import logging
@@ -32,39 +32,41 @@ logging.basicConfig(filename='/app/logs/api.log',
                     format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s')
 
 
-def _get_data(ticker: str, outputsize: str):
+async def _get_data(ticker: str, outputsize: str):
     url = f"{BASE_URL}&outputsize={outputsize}&symbol={ticker.upper()}" \
         + "&apikey={API_KEY}&datatype=csv"
-    response = requests.get(url)
-    if "Error Message" not in response.content.decode('utf-8'):
-        outerData = response.content.decode('utf-8').split('\n')
-        for i in range(len(outerData)):
-            outerData[i] = outerData[i].strip().split(",")
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            csv_response = await response.text()
+            if "Error Message" not in csv_response:
+                outerData = csv_response.split('\n')
+                for i in range(len(outerData)):
+                    outerData[i] = outerData[i].strip().split(",")
 
-        data = pd.DataFrame(outerData[1:], columns=outerData[0])
-        data = data.set_index(data.timestamp)
-        data = data.drop("timestamp", axis=1)
-        json_str = data.to_json(orient="index", indent=4)
-        data_dict = json.loads(json_str)
-        data_list = list(data_dict.items())
-        datapoint_list = []
-        for data in data_list[:-1]:
-            logging.debug(f"{data[0]}")
-            consolidated_data_dict = {
-                'timestamp': datetime.strptime(data[0], "%Y-%m-%d")}
-            consolidated_data_dict.update({"ticker": ticker})
-            consolidated_data_dict.update({"open": data[1].get("open")})
-            consolidated_data_dict.update({"close": data[1].get("close")})
-            consolidated_data_dict.update({"high": data[1].get("high")})
-            consolidated_data_dict.update({"low": data[1].get("low")})
-            datapoint_list.append(StockDatapoint(**consolidated_data_dict))
+                data = pd.DataFrame(outerData[1:], columns=outerData[0])
+                data = data.set_index(data.timestamp)
+                data = data.drop("timestamp", axis=1)
+                json_str = data.to_json(orient="index", indent=4)
+                data_dict = json.loads(json_str)
+                data_list = list(data_dict.items())
+                datapoint_list = []
+                for data in data_list[:-1]:
+                    logging.debug(f"{data[0]}")
+                    consolidated_data_dict = {
+                        'timestamp': datetime.strptime(data[0], "%Y-%m-%d")}
+                    consolidated_data_dict.update({"ticker": ticker})
+                    consolidated_data_dict.update({"open": data[1].get("open")})
+                    consolidated_data_dict.update({"close": data[1].get("close")})
+                    consolidated_data_dict.update({"high": data[1].get("high")})
+                    consolidated_data_dict.update({"low": data[1].get("low")})
+                    datapoint_list.append(StockDatapoint(**consolidated_data_dict))
 
-        logging.debug(f"{datapoint_list}")
+                logging.debug(f"{datapoint_list}")
 
-        return datapoint_list
+                return datapoint_list
 
-    logging.error(f"Ticker {ticker} could not be found")
-    return HTTPException(status_code=404, detail=f"Ticker {ticker} could not be found")
+            logging.error(f"Ticker {ticker} could not be found")
+            raise HTTPException(status_code=404, detail=f"Ticker {ticker} could not be found")
 
 
 async def _update_db(ticker_coll, ticker, data):
@@ -87,21 +89,21 @@ async def _update_db(ticker_coll, ticker, data):
             ticker_coll.insert_one(item.to_bson())
 
 
-def get_all_data(ticker):
-    return _get_data(ticker, "full")
+async def get_all_data(ticker):
+    return await _get_data(ticker, "full")
 
 
-def get_newest_data(ticker):
-    return _get_data(ticker, "compact")
+async def get_newest_data(ticker):
+    return await _get_data(ticker, "compact")
 
 
 async def update_db(ticker_coll, ticker):
-    data = get_newest_data(ticker)
+    data = await get_newest_data(ticker)
     await _update_db(ticker_coll, ticker, data)
 
 
 async def refresh_db(ticker_coll, ticker):
-    data = get_all_data(ticker)
+    data = await get_all_data(ticker)
     await _update_db(ticker_coll, ticker, data)
 
 
@@ -137,7 +139,7 @@ async def refresh_stock_data(ticker: str):
     collection_names = await db.list_collection_names()
     ticker_collection = db[ticker]
     if ticker not in collection_names:
-        return HTTPException(status_code=404, detail="Ticker not found")
+        raise HTTPException(status_code=404, detail="Ticker not found")
     else:
         logging.debug(f"Updating {ticker} collections")
         await refresh_db(ticker_collection, ticker)
@@ -153,7 +155,7 @@ async def should_i_buy(ticker: str):
     collection_names = await db.list_collection_names()
     ticker_collection = db[ticker]
     if ticker not in collection_names:
-        return HTTPException(status_code=404, detail="Ticker not in DB")
+        raise HTTPException(status_code=404, detail="Ticker not in DB")
 
     data = []
     async for doc in ticker_collection.find().limit(5):
