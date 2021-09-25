@@ -17,7 +17,8 @@ class Settings(BaseSettings):
     """Base config."""
     app_name: str = "ShouldIBuy API"
     debug: bool = False
-    mongo_url: str = f"mongodb://root:{environ.get('DBPASS')}@mongo:27017/admin"
+    mongo_url: str = f"mongodb://root:{environ.get('DBPASS')}" \
+        + "@mongo:27017/admin"
     api_key: str = environ['ALPHAVANTAGE_API_KEY']
 
 
@@ -29,7 +30,7 @@ BASE_URL = "https://www.alphavantage.co/query?function=TIME_SERIES_DAILY"
 API_KEY = settings.api_key
 logging.basicConfig(filename='/app/logs/api.log',
                     level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s')
+                    format='%(asctime)s %(levelname)s %(name)s : %(message)s')
 
 
 async def _get_data(ticker: str, outputsize: str):
@@ -54,25 +55,33 @@ async def _get_data(ticker: str, outputsize: str):
                     logging.debug(f"{data[0]}")
                     consolidated_data_dict = {
                         'timestamp': datetime.strptime(data[0], "%Y-%m-%d")}
-                    consolidated_data_dict.update({"ticker": ticker})
-                    consolidated_data_dict.update({"open": data[1].get("open")})
-                    consolidated_data_dict.update({"close": data[1].get("close")})
-                    consolidated_data_dict.update({"high": data[1].get("high")})
-                    consolidated_data_dict.update({"low": data[1].get("low")})
-                    datapoint_list.append(StockDatapoint(**consolidated_data_dict))
+                    consolidated_data_dict.update({
+                        "ticker": ticker})
+                    consolidated_data_dict.update({
+                        "open": data[1].get("open")})
+                    consolidated_data_dict.update({
+                        "close": data[1].get("close")})
+                    consolidated_data_dict.update({
+                        "high": data[1].get("high")})
+                    consolidated_data_dict.update({
+                        "low": data[1].get("low")})
+                    datapoint_list.append(
+                        StockDatapoint(**consolidated_data_dict))
 
                 logging.debug(f"{datapoint_list}")
 
                 return datapoint_list
 
             logging.error(f"Ticker {ticker} could not be found")
-            raise HTTPException(status_code=404, detail=f"Ticker {ticker} could not be found")
+            raise HTTPException(status_code=404,
+                                detail=f"Ticker {ticker} could not be found")
 
 
 async def _update_db(ticker_coll, ticker, data):
     logging.debug(f"{ticker_coll}")
     for item in data:
-        found = await ticker_coll.find_one({'timestamp': item.timestamp}, {'_id': 0})
+        found = await ticker_coll.find_one({
+            'timestamp': item.timestamp}, {'_id': 0})
         logging.debug(f"{found}")
         if found:
             found_datapoint = StockDatapoint(**found)
